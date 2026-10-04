@@ -1,0 +1,88 @@
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var callback = e.parameter.callback;
+
+  // 1. LER ABA LIDERES
+  var abaLideres = ss.getSheetByName("LIDERES");
+  var dadosLideres = abaLideres.getDataRange().getValues();
+  var lideres = [];
+
+  // Começa da linha 2 (índice 1) para ignorar o cabeçalho
+  for (var i = 1; i < dadosLideres.length; i++) {
+    var linha = dadosLideres[i];
+    var situacao = String(linha[0] || '').trim(); // Coluna A: SITUAÇÃO
+    var nome = String(linha[2] || '').trim();     // Coluna C: NOME DO LÍDER
+
+    // Processa apenas se estiver ATIVO e tiver nome
+    if (situacao.toUpperCase() === "ATIVO" && nome !== "") {
+      var chapa = String(linha[1] || '').trim();   // Coluna B: CHAPA
+      var turno = String(linha[6] || '').trim();   // Coluna G: TURNO
+      var terminal = String(linha[11] || '').trim(); // Coluna L: TERMINAL
+
+      lideres.push({
+        chapa: chapa,
+        nome_lider: nome,
+        turno: turno,
+        _terminal: terminal,
+        term_norm: normalizar(terminal),
+        turno_norm: normalizar(turno)
+      });
+    }
+  }
+
+  // 2. LER ABA COLABORADORES
+  var abaColabs = ss.getSheetByName("COLABORADORES");
+  var dadosColabs = abaColabs.getDataRange().getValues();
+  var colaboradores = [];
+
+  for (var j = 1; j < dadosColabs.length; j++) {
+    var linhaC = dadosColabs[j];
+    var situacaoC = String(linhaC[0] || '').trim(); // Coluna A: SITUAÇÃO
+    var nomeC = String(linhaC[2] || '').trim();      // Coluna C: NOME
+
+    if (situacaoC.toUpperCase() === "ATIVO" && nomeC !== "") {
+      var chapaC = String(linhaC[1] || '').trim();    // Coluna B: CHAPA
+      var horarioC = String(linhaC[5] || '').trim();  // Coluna F: HORÁRIO
+      var turnoC = String(linhaC[6] || '').trim();    // Coluna G: TURNO
+      var terminalC = String(linhaC[11] || '').trim(); // Coluna L: TERMINAL
+
+      // Extrai horários se no formato "JORNADA DAS 05:00 AS 11:00"
+      var entrada = "";
+      var saida = "";
+      var match = horarioC.match(/(\d{2}:\d{2})\s+AS\s+(\d{2}:\d{2})/i);
+      if (match) {
+        entrada = match[1];
+        saida = match[2];
+      } else {
+        entrada = horarioC;
+      }
+
+      colaboradores.push({
+        chapa: chapaC,
+        colaborador: nomeC,
+        turno: turnoC,
+        _terminal: terminalC,
+        entrada: entrada,
+        saida: saida,
+        term_norm: normalizar(terminalC),
+        turno_norm: normalizar(turnoC)
+      });
+    }
+  }
+
+  var resultado = {
+    lideres: lideres,
+    colaboradores: colaboradores
+  };
+
+  var output = callback 
+    ? callback + "(" + JSON.stringify(resultado) + ")" 
+    : JSON.stringify(resultado);
+
+  return ContentService.createTextOutput(output)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+function normalizar(texto) {
+  return String(texto || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
